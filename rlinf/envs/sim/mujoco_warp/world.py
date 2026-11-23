@@ -50,6 +50,8 @@ class MjWarpWorld:
         mj_model: Native model. A PGS solver is replaced with CG.
         num_envs: Number of parallel worlds.
         device: ``cpu`` or ``cuda`` device.
+        use_cuda_graph: Capture the physics step on first use and replay it on
+            the same model and data buffers. Ignored on CPU.
     """
 
     def __init__(
@@ -57,6 +59,7 @@ class MjWarpWorld:
         mj_model: object,
         num_envs: int,
         device: Union[torch.device, str],
+        use_cuda_graph: bool = False,
     ) -> None:
         import mujoco_warp as mjw
         import warp as wp
@@ -74,6 +77,8 @@ class MjWarpWorld:
         self._wp = wp
         self._mjw = mjw
         self._wp_device = str(self.device)
+        self._use_cuda_graph = use_cuda_graph and self.device.type == "cuda"
+        self._step_graph = None
         self.mj_model = mj_model
 
         with wp.ScopedDevice(self._wp_device):
@@ -104,6 +109,7 @@ class MjWarpWorld:
         xml_path: str,
         num_envs: int,
         device: Union[torch.device, str],
+        use_cuda_graph: bool = False,
     ) -> "MjWarpWorld":
         """Build a world from an MJCF file.
 
@@ -111,13 +117,19 @@ class MjWarpWorld:
             xml_path: Path to the MJCF file.
             num_envs: Number of parallel worlds.
             device: ``cpu`` or ``cuda`` device.
+            use_cuda_graph: Capture and reuse the physics step on CUDA.
 
         Returns:
             A world whose native model was loaded from ``xml_path``.
         """
         import mujoco
 
-        return cls.from_model(mujoco.MjModel.from_xml_path(xml_path), num_envs, device)
+        return cls.from_model(
+            mujoco.MjModel.from_xml_path(xml_path),
+            num_envs,
+            device,
+            use_cuda_graph,
+        )
 
     @classmethod
     def from_model(
@@ -125,6 +137,7 @@ class MjWarpWorld:
         mj_model: object,
         num_envs: int,
         device: Union[torch.device, str],
+        use_cuda_graph: bool = False,
     ) -> "MjWarpWorld":
         """Build a world from an already compiled native model.
 
@@ -133,11 +146,12 @@ class MjWarpWorld:
                 is PGS.
             num_envs: Number of parallel worlds.
             device: ``cpu`` or ``cuda`` device.
+            use_cuda_graph: Capture and reuse the physics step on CUDA.
 
         Returns:
             A world that steps ``mj_model``.
         """
-        return cls(mj_model, num_envs, device)
+        return cls(mj_model, num_envs, device, use_cuda_graph)
 
     @property
     def qpos(self) -> torch.Tensor:
@@ -157,7 +171,14 @@ class MjWarpWorld:
     def physics_step(self) -> None:
         """Integrate every world by one MuJoCo timestep."""
         with self._wp.ScopedDevice(self._wp_device):
-            self._mjw.step(self.model, self.data)
+            if self._use_cuda_graph and self._step_graph is None:
+                with self._wp.ScopedCapture() as capture:
+                    self._mjw.step(self.model, self.data)
+                self._step_graph = capture.graph
+            if self._step_graph is None:
+                self._mjw.step(self.model, self.data)
+            else:
+                self._wp.capture_launch(self._step_graph)
 
     def forward(self) -> None:
         """Refresh derived quantities from ``qpos`` and ``qvel``.

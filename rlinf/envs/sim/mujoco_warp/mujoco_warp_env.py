@@ -122,7 +122,12 @@ class MujocoWarpEnv(gym.Env):
             )
 
         xml_path = os.path.join(_ASSETS_DIR, spec.xml_file)
-        self.world = MjWarpWorld.from_xml(xml_path, self.num_envs, self.device)
+        self.world = MjWarpWorld.from_xml(
+            xml_path,
+            self.num_envs,
+            self.device,
+            use_cuda_graph=bool(_cfg_get(cfg, "use_cuda_graph", True)),
+        )
         self.task = LocomotionTask(spec, seed=self.seed)
         self.obs_dim = self.task.obs_dim(self.world)
         self.action_dim = self.world.nu

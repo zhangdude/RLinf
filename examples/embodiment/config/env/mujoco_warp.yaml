@@ -1,6 +1,7 @@
 env_type: mujoco_warp
 task_name: half_cheetah
 device: cuda
+use_cuda_graph: true
 
 total_num_envs: null
 group_size: 1
