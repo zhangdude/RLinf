@@ -97,10 +97,10 @@ Task-level signals reported by training environment workers.
      - **Primary embodied signal.** Unnormalized episodic success rate.
      - Should trend steadily upward; compare against ``eval/success_once`` to check generalization.
    * - ``env/episode_len``
-     - Mean number of environment steps per episode.
+     - Mean length in environment steps of the completed episodes reported in this rollout.
      - Often decreases as the policy solves tasks faster.
    * - ``env/return``
-     - Sum of rewards over an episode.
+     - Mean undiscounted sum of step rewards over those completed episodes. It is not an average per step.
      - Near zero under sparse rewards until episodes succeed.
    * - ``env/reward``
      - Step-level reward averaged over episode length.
@@ -129,7 +129,7 @@ Periodic validation metrics logged whenever ``runner.val_check_interval`` trigge
      - Shorter length alongside higher success indicates cleaner execution.
    * - ``eval/num_trajectories``
      - Total trajectories aggregated across evaluation workers.
-     - Confirm it matches expected ``eval`` worker and episode counts.
+     - Confirm it matches expected ``eval`` worker and episode counts. If early-terminated episodes reset during a rollout, this count can exceed the number of configured worlds.
 
 ``time/``
 ---------

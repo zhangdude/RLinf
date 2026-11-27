@@ -97,10 +97,10 @@ RLinf 通过 :doc:`MetricLogger <../guides/logger>` 在五个核心命名空间�
      - **核心具身指标。** 未归一化的回合成功率。
      - 应随训练稳步提升，并与 ``eval/success_once`` 对照观察泛化。
    * - ``env/episode_len``
-     - 回合平均环境步数。
+     - 本次 rollout 中已完成回合的平均环境步数。
      - 随着任务完成变快，通常会逐步下降。
    * - ``env/return``
-     - 回合累计回报。
+     - 这些已完成回合的平均累计回报（不按步平均）。
      - 稀疏奖励下在成功前接近 0。
    * - ``env/reward``
      - 按回合长度平均后的步级奖励。
@@ -129,7 +129,7 @@ RLinf 通过 :doc:`MetricLogger <../guides/logger>` 在五个核心命名空间�
      - 成功率提高且步数下降说明动作更利落。
    * - ``eval/num_trajectories``
      - 跨评估 worker 汇总的轨迹总数。
-     - 核对是否与配置的 ``eval`` worker 与回合数一致。
+     - 核对是否与配置的 ``eval`` worker 与回合数一致；如果提前结束的回合在 rollout 中途被重置，这个计数可以超过配置的环境数。
 
 ``time/``
 ---------
